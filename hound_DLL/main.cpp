@@ -1,25 +1,39 @@
 #include <Windows.h>
 #include <memory.h>
+#include <string>
 
-#define SHMEMSIZE 4096
+struct SharedData
+{
+	HINSTANCE instance = nullptr;
+	LPDWORD init_fxn = nullptr;
+	DWORD init_offset = 0;
+	LPDWORD status_display_fxn = nullptr;
+	DWORD status_display_offset = 0;
+};
 
-static LPVOID mem_map = NULL;
+#define DLL_INIT_FXN_NAME "DLLInit"
+#define DLL_STATUS_DISPLAY_FXN_NAME "WriteStatusMessage"
+#define SHMEMSIZE sizeof(SharedData)
+#define SHMEMNAME L"Global\\hound_DLL_file_map"
+#define LOG_FILE L"C:\\Users\\ap\\Documents\\Projects\\Programs\\logs\\hound_DLL.log"
+
 static HANDLE map_object = NULL;
+static LPVOID mem_map = NULL;
 
 BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 {
-	BOOL init, ignore;
+	BOOL init;
+	SharedData data;
 
 	switch (reason) {
 	case DLL_PROCESS_ATTACH:
-
-		map_object = CreateFileMapping(INVALID_HANDLE_VALUE,
-			NULL,
+		map_object = CreateFileMappingW(INVALID_HANDLE_VALUE,
+			nullptr,
 			PAGE_READWRITE,
 			0,
 			SHMEMSIZE,
-			TEXT("hound_DLL_file_map"));
-		if (map_object == NULL) return FALSE;
+			SHMEMNAME);
+		if (map_object == nullptr) return FALSE;
 
 		init = (GetLastError() != ERROR_ALREADY_EXISTS);
 
@@ -27,10 +41,19 @@ BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 			FILE_MAP_ALL_ACCESS,
 			0,
 			0,
-			0);
-		if (mem_map == NULL) return FALSE;
+			SHMEMSIZE);
+		if (mem_map == nullptr) return FALSE;
 
-		if (init) memset(mem_map, '\0', SHMEMSIZE);
+		if (init) {
+			memset(mem_map, 0, SHMEMSIZE);
+			data.instance = hDLL;
+			
+			//set struct fxn ref values
+			data.init_fxn = LPDWORD(GetProcAddress(hDLL, DLL_INIT_FXN_NAME));
+			data.init_offset = DWORD(data.init_fxn) - DWORD(data.instance);
+			data.status_display_fxn = LPDWORD(GetProcAddress(hDLL, DLL_STATUS_DISPLAY_FXN_NAME));
+			data.status_display_offset = DWORD(data.status_display_fxn) - DWORD(data.instance);
+		}
 
 		break;
 	case DLL_THREAD_ATTACH:
@@ -38,10 +61,8 @@ BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-
-		ignore = UnmapViewOfFile(mem_map);
-		ignore = CloseHandle(map_object);
-
+		UnmapViewOfFile(mem_map);
+		CloseHandle(map_object);
 		break;
 	default:
 		break;
@@ -54,3 +75,23 @@ BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 }
 
 //DLL functions
+void WriteStatusMessage(std::string msg)
+{
+	DWORD size;
+	const char* msg_raw = msg.c_str();
+	
+	HANDLE hfile = CreateFileW(LOG_FILE, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	WriteFile(hfile, msg_raw, strlen(msg_raw), &size, NULL);
+	WriteFile(hfile, "\r\n", 2, &size, NULL);
+	CloseHandle(hfile);
+}
+
+bool DLLInit()
+{
+	std::string msg = "Setup DLL data and functions...";
+	WriteStatusMessage(msg);
+
+
+
+	return true;
+}
