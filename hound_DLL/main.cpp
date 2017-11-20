@@ -15,7 +15,7 @@ struct SharedData
 #define DLL_STATUS_DISPLAY_FXN_NAME "WriteStatusMessage"
 #define SHMEMSIZE sizeof(SharedData)
 #define SHMEMNAME L"Global\\hound_DLL_file_map"
-#define LOG_FILE L"C:\\Users\\ap\\Documents\\Projects\\Programs\\logs\\hound_DLL.log"
+#define LOG_FILE L"C:\\Users\\ap\\Documents\\Projects\\logs\\hound_DLL.log"
 
 static HANDLE map_object = NULL;
 static LPVOID mem_map = NULL;
