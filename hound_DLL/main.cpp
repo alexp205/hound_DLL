@@ -7,8 +7,6 @@ struct SharedData
 	HINSTANCE instance = nullptr;
 	LPDWORD init_fxn = nullptr;
 	DWORD init_offset = 0;
-	LPDWORD status_display_fxn = nullptr;
-	DWORD status_display_offset = 0;
 };
 
 #define DLL_INIT_FXN_NAME "DLLInit"
@@ -49,10 +47,9 @@ BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 			data.instance = hDLL;
 			
 			//set struct fxn ref values
-			data.init_fxn = LPDWORD(GetProcAddress(hDLL, DLL_INIT_FXN_NAME));
+			data.init_fxn = LPDWORD(GetProcAddress(hDLL, "DLLInit"));
 			data.init_offset = DWORD(data.init_fxn) - DWORD(data.instance);
-			data.status_display_fxn = LPDWORD(GetProcAddress(hDLL, DLL_STATUS_DISPLAY_FXN_NAME));
-			data.status_display_offset = DWORD(data.status_display_fxn) - DWORD(data.instance);
+			memcpy_s(mem_map, SHMEMSIZE, &data, SHMEMSIZE);
 		}
 
 		break;
@@ -74,24 +71,4 @@ BOOL WINAPI DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 	UNREFERENCED_PARAMETER(reserved);
 }
 
-//DLL functions
-void WriteStatusMessage(std::string msg)
-{
-	DWORD size;
-	const char* msg_raw = msg.c_str();
-	
-	HANDLE hfile = CreateFileW(LOG_FILE, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	WriteFile(hfile, msg_raw, strlen(msg_raw), &size, NULL);
-	WriteFile(hfile, "\r\n", 2, &size, NULL);
-	CloseHandle(hfile);
-}
-
-bool DLLInit()
-{
-	std::string msg = "Setup DLL data and functions...";
-	WriteStatusMessage(msg);
-
-
-
-	return true;
-}
+void DLLInit() {}
